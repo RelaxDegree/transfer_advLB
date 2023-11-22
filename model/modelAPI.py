@@ -34,7 +34,7 @@ class ModelApi:
             index = top_k.indices[i].item()
             probability = top_k.values[i].item()
 
-            label = labels[index]
+            label = labels[index + 1]
             conf_list.append((label, probability))
             # print(f"{label}: {probability:.5f}")
         return conf_list
@@ -43,6 +43,6 @@ class ModelApi:
     def get_y_conf(self, img, label):
         conf_list = self.get_conf(img, 1000)
         for i in range(len(conf_list)):
-            if conf_list[i][0] == label:
+            if conf_list[i][0] == label or label in conf_list[i][0]:
                 return conf_list[i][1]
         return 0

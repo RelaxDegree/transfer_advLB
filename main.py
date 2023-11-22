@@ -1,16 +1,19 @@
-# 这是一个示例 Python 脚本。
 
-# 按 Shift+F10 执行或将其替换为您的代码。
-# 按 双击 Shift 在所有地方搜索类、文件、工具窗口、操作和设置。
+from SMLB.pso_transfer import TPSO
+from model.rn50 import Rn50
+from model.mbv2 import Mbv2
+from model.dn121 import Dn121
+from model.swin import Swin_b
+from model.vitB import Vit_b
+from laser.Vector import Vector
+from utils.utils import test_log
 
+rn50 = Rn50()
+mbv2 = Mbv2()
+dn121 = Dn121()
+vitb = Vit_b()
+swin_b = Swin_b()
 
-def print_hi(name):
-    # 在下面的代码行中使用断点来调试脚本。
-    print(f'Hi, {name}')  # 按 Ctrl+F8 切换断点。
-
-
-# 按间距中的绿色按钮以运行脚本。
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
+# pt = TPSO(mbv2, Vector)
+# pt.setModels([rn50, mbv2, dn121, vitb, swin_b])
+# pt.getAdvLB(num_particles=30, max_iterations=100, k=10, S=10, image=Image.open("2.jpg"), inertia_weight=0.9, cognitive_weight=1.6, social_weight=1.8)

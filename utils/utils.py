@@ -97,6 +97,7 @@ def pc_toast(text):
 
 
 log_root = 'log.csv'
+test_root = 'test.csv'
 
 
 def write_log(label, argmax, theta, conf_before, conf_after, times):
@@ -113,3 +114,11 @@ def write_log_error(label):
     with open('adv/' + log_root, 'a') as f:
         writer = csv.writer(f)
         writer.writerow([time_str, label, 'error'])
+
+
+def test_log(model, method, suc_times, times, suc_num, dateset):
+    time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+    with open('' + test_root, 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [time_str, model, method, dateset, times, suc_times, suc_num])

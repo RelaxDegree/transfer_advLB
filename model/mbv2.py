@@ -1,5 +1,5 @@
 import torch
-from modelAPI import ModelApi, labels
+from model.modelAPI import ModelApi
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
@@ -22,7 +22,7 @@ class Mbv2(ModelApi):
     # 获取图像对于特定类别的预测结果
     def get_y_conf(self, img, label):
         return super().get_y_conf(img, label)
-
-mbv2 = Mbv2()
-img = Image.open("2.jpg")
-print(mbv2.get_conf(img))
+#
+# mbv2 = Mbv2()
+# img = Image.open("2.jpg")
+# print(mbv2.get_conf(img))

@@ -96,3 +96,30 @@ class Cons_Vector:
             self.b = args[2]
             self.w = args[3]
             self.alpha = args[4]
+
+
+import copy
+
+
+class Cons_Particle:
+    def __init__(self, image, lst):
+        self.theta = Cons_Vector(lst)
+        self.velocity = random.choice(self.theta.Q).copy()
+        self.best_theta = copy.copy(self.theta)
+        self.image = image
+        self.argmax = ''
+        self.conf = 0
+        self.conf_sec = 0
+
+    def update_velocity(self, global_best_theta, inertia_weight, cognitive_weight, social_weight):
+        for i in range(4):
+            self.velocity[i] *= inertia_weight
+        theta1 = (self.best_theta - self.theta) * cognitive_weight
+        theta2 = (global_best_theta - self.theta) * social_weight
+        self.velocity[1] += random.uniform(0, 1) * theta1.l + random.uniform(0, 1) * theta2.l
+        self.velocity[2] += random.uniform(0, 1) * theta1.b + random.uniform(0, 1) * theta2.b
+
+    def update_theta(self):
+        self.theta.l += self.velocity[1]
+        self.theta.b += self.velocity[2]
+        self.theta.clip(self.image)

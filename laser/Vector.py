@@ -116,3 +116,46 @@ class Vector(AbstractVector):
             self.w = args[3]
             self.alpha = args[4]
         return Vector(self.phi, self.l, self.b, self.w, self.alpha)
+
+    @staticmethod
+    def latin_transform(img, samples):
+
+        new_samples = []
+        for sample in samples:
+            s = [380 + (750 - 380) * sample[0], -math.pi / 2 + math.pi * sample[1], img.size[1] * sample[2],
+                 10 + 10 * sample[3], 0.5 + 0.3 * sample[4]]
+            new_samples.append(s)
+        return new_samples
+
+
+import copy
+
+
+class Particle:
+    def __init__(self, image, lst):
+        self.theta = Vector(lst)
+        self.velocity = random.choice(self.theta.Q).copy()
+        self.best_theta = copy.copy(self.theta)
+        self.image = image
+        self.argmax = ''
+        self.conf = 0
+        self.conf_sec = 0
+
+    def update_velocity(self, global_best_theta, inertia_weight, cognitive_weight, social_weight):
+        for i in range(4):
+            self.velocity[i] *= inertia_weight
+        theta1 = (self.best_theta - self.theta) * cognitive_weight
+        theta2 = (global_best_theta - self.theta) * social_weight
+        self.velocity[0] += random.uniform(0, 1) * theta1.phi + random.uniform(0, 1) * theta2.phi
+        self.velocity[1] += random.uniform(0, 1) * theta1.l + random.uniform(0, 1) * theta2.l
+        self.velocity[2] += random.uniform(0, 1) * theta1.b + random.uniform(0, 1) * theta2.b
+        self.velocity[3] += random.uniform(0, 1) * theta1.w + random.uniform(0, 1) * theta2.w
+        self.velocity[4] += random.uniform(0, 1) * theta1.alpha + random.uniform(0, 1) * theta2.alpha
+
+    def update_theta(self):
+        self.theta.phi += self.velocity[0]
+        self.theta.l += self.velocity[1]
+        self.theta.b += self.velocity[2]
+        self.theta.w += self.velocity[3]
+        self.theta.alpha += self.velocity[4]
+        self.theta.clip(self.image)
