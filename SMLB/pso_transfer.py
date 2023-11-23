@@ -59,7 +59,7 @@ class TPSO(SMLB):
             self.particles.append(particle)
 
     def update_global_best(self):
-        global_best_fitness = float('-inf')
+        global_best_fitness = 0
         global_best_theta = None
         for particle in self.particles:
             fitness = self.evaluate_fitness(particle.theta)

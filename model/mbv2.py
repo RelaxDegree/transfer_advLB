@@ -10,6 +10,7 @@ class Mbv2(ModelApi):
 
     def __init__(self):
         # 加载预训练的ResNet模型
+        self.name = "MobileNet_V2"
         self.model = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)

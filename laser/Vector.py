@@ -151,6 +151,7 @@ class Particle:
         self.velocity[2] += random.uniform(0, 1) * theta1.b + random.uniform(0, 1) * theta2.b
         self.velocity[3] += random.uniform(0, 1) * theta1.w + random.uniform(0, 1) * theta2.w
         self.velocity[4] += random.uniform(0, 1) * theta1.alpha + random.uniform(0, 1) * theta2.alpha
+        # print(self.velocity)
 
     def update_theta(self):
         self.theta.phi += self.velocity[0]

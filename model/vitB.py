@@ -8,6 +8,7 @@ class Vit_b(ModelVitApi):
 
     def __init__(self):
         # 加载预训练的ResNet模型
+        self.name = "Vit_b"
         model_name = "E:\\pretrained_models\\vitB"
         self.processor = AutoImageProcessor.from_pretrained(model_name)
         self.model = AutoModelForImageClassification.from_pretrained(model_name)

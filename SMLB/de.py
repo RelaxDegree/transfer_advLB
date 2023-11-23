@@ -1,67 +1,70 @@
-from SMLB.smlb import SMLB
 import random
-import math
-from laser.Vector import Particle
 import copy
-from laser.laser import makeLB
 from utils.utils import write_log
-import matplotlib.pyplot as plt
-import numpy as np
+from laser.laser import makeLB
+from SMLB.smlb import SMLB
 
 
-class PSO(SMLB):
-    threshold = 0.01
-
-    def setHyperParams(self, **kwargs):
-        self.num_particles = kwargs['num_particles']
-        self.image = kwargs['image']
-        self.inertia_weight = kwargs['inertia_weight']
-        self.cognitive_weight = kwargs['cognitive_weight']
-        self.social_weight = kwargs['social_weight']
-        self.max_iterations = kwargs['max_iterations']
-        self.particles = []
-        self.label, self.conf = self.modelApi.get_conf(self.image)[0]
-        self.fitness = 0
-        self.atk_times = 0
-        print('[adv开始] label:%s conf:%f' % (self.label, self.conf))
-
+class DE(SMLB):
     def __init__(self, modelApi, vectorApi):
         super().__init__(modelApi, vectorApi)
         self.fitness = None
         self.num_particles = None
         self.image = None
-        self.inertia_weight = None
-        self.cognitive_weight = None
-        self.social_weight = None
+        self.scale_factor = None
+        self.cross_probability = None
         self.max_iterations = None
-        self.particles = None
+        self.population = None
         self.label = None
         self.conf = None
         self.atk_times = None
 
-    def latin_hypercube_sampling(self, dimension, num_samples):
-        # 生成初始的拉丁超立方采样矩阵
-        initial_matrix = [[(i + random.random()) / num_samples for i in range(num_samples)] for _ in range(dimension)]
+    def setHyperParams(self, **kwargs):
+        self.num_particles = kwargs['num_particles']
+        self.image = kwargs['image']
+        self.scale_factor = kwargs['scale_factor']
+        self.cross_probability = kwargs['cross_probability']
+        self.max_iterations = kwargs['max_iterations']
+        self.population = []
+        self.label, self.conf = self.modelApi.get_conf(self.image)[0]
+        self.fitness = 0
+        self.atk_times = 0
+        print('[adv开始] label:%s conf:%f' % (self.label, self.conf))
 
-        # 对每一列进行随机置换
-        for i in range(dimension):
-            random.shuffle(initial_matrix[i])
+    def initialize_population(self):
+        for _ in range(self.num_particles):
+            particle = Particle(self.image)
+            self.population.append(particle)
 
-        # 对每一列进行归一化，得到最终的拉丁超立方采样样本
-        samples = [[initial_matrix[i][j] for i in range(dimension)] for j in range(num_samples)]
-        return self.vectorApi.latin_transform(self.image, samples)
+    def mutate(self, target, a, b, c):
+        # Mutation operation for DE
+        candidate = copy.deepcopy(target)
+        indices = list(range(len(candidate.theta)))
 
-    def initialize_particles(self):
-        # 生成拉丁超立方采样样本
-        samples = self.latin_hypercube_sampling(5, self.num_particles)
-        for i in range(self.num_particles):
-            particle = Particle(self.image, samples[i])
-            self.particles.append(particle)
+        # Randomly select three distinct indices
+        random.shuffle(indices)
+        rand1, rand2, rand3 = indices[:3]
+
+        for i in range(len(candidate.theta)):
+            if random.random() < self.cross_probability or i == rand3:
+                candidate.theta[i] = target.theta[rand1] + a * (target.theta[rand2] - target.theta[rand3])
+            else:
+                candidate.theta[i] = target.theta[i]
+
+        return candidate
+
+    def crossover(self, target, mutant):
+        # Crossover operation for DE
+        for i in range(len(target.theta)):
+            if random.random() < self.cross_probability:
+                target.theta[i] = mutant.theta[i]
+
+        return target
 
     def update_global_best(self):
         global_best_fitness = float('inf')
         global_best_theta = None
-        for particle in self.particles:
+        for particle in self.population:
             argmax, fitness, conf_sec = self.evaluate_fitness(particle.theta)
             if argmax == self.label and fitness < particle.conf:
                 particle.best_theta = copy.copy(particle.theta)
@@ -91,12 +94,36 @@ class PSO(SMLB):
     def getAdvLB(self, **kwargs):
         self.setHyperParams(**kwargs)
 
-        self.initialize_particles()
+        self.initialize_population()
         global_best_theta = self.update_global_best()[0]
 
         for _ in range(self.max_iterations):
-            for particle in self.particles:
-                if particle.argmax != self.label and particle.conf > particle.conf_sec + self.threshold:
+            for i in range(self.num_particles):
+                target = self.population[i]
+
+                # Mutation
+                mutant = self.mutate(target, 0.5, 0.5, 0.5)
+
+                # Crossover
+                trial = self.crossover(target, mutant)
+
+                # Selection
+                argmax, fitness, conf_sec = self.evaluate_fitness(trial.theta)
+                if argmax == self.label and fitness < target.conf:
+                    target.theta = copy.copy(trial.theta)
+                    target.conf = fitness
+                    target.argmax = argmax
+                    target.conf_sec = conf_sec
+                elif argmax != self.label:
+                    target.theta = copy.copy(trial.theta)
+                    target.conf = fitness
+                    target.argmax = argmax
+                    target.conf_sec = conf_sec
+
+            global_best_theta = self.update_global_best()[0]
+
+            for particle in self.population:
+                if particle.argmax != self.label and particle.conf > particle.conf_sec + PSO.threshold:
                     print("[advLB] 标签%s被攻击为%s" % (self.label, particle.argmax))
                     print("[advLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (particle.theta.phi, particle.theta.l,
                                                                        particle.theta.b, particle.theta.w,
@@ -106,11 +133,7 @@ class PSO(SMLB):
                     makeLB(particle.theta, self.image).save(saveFile)
                     write_log(self.label, particle.argmax, particle.theta, self.conf, particle.conf, self.atk_times)
                     return particle.theta, self.atk_times
-            for particle in self.particles:
-                particle.update_velocity(global_best_theta, self.inertia_weight, self.cognitive_weight,
-                                         self.social_weight)
-                particle.update_theta()
-            global_best_theta = self.update_global_best()[0]
+
         print("[advLB] 未找到攻击样本")
         saveFile = 'adv/' + str(self.label) + '--' + str(self.conf) + '.jpg'
         self.image.save(saveFile)

@@ -6,14 +6,34 @@ from laser.laser import makeLB
 savefilename = 'adv/'
 
 
-class KR(SMLB):
-    threshold = 0.01
-    change_threshold = 0.00001
+class TKR(SMLB):
+    threshold = 0
+    change_threshold = 0.0000001
+
+    def setModels(self, modelApis):
+        for api in modelApis:
+            self.modelApis.append(api)
+
+    def getFitness(self, img, label):
+        fitness = 0
+        for api in self.modelApis:
+            score = api.get_y_conf(img, label)
+            # print(api.name, score)
+            fitness += score
+        return fitness / len(self.modelApis)
+
+    def showTransfer(self, img, label):
+        lst = []
+        for api in self.modelApis:
+            score = api.get_y_conf(img, label)
+            lst.append((api.name, score))
+        return lst
 
     def getAdvLB(self, **kwargs):
         open_time = time.time()
         image, S, tmax, k = kwargs['image'], kwargs['S'], kwargs['tmax'], kwargs['k']
-        label, conf_ = self.modelApi.get_conf(image)[0]  # conf* <- fy(x)
+        label = self.modelApi.get_conf(image)[0][0]  # conf* <- fy(x)
+        conf_ = self.getFitness(image, label)
         times = 0
         print('[adv开始] label:%s conf:%f' % (label, conf_))
         for i in range(k):  # for i = 1 to k do
@@ -35,12 +55,12 @@ class KR(SMLB):
                 theta2.clip(image)
                 image1 = makeLB(theta1, image)
                 image2 = makeLB(theta2, image)
-                conf1 = self.modelApi.get_y_conf(image1, label)  # conf <- fy(xl_theta)
+                conf1 = self.getFitness(image1, label)  # conf <- fy(xl_theta)
                 if conf > conf1 + self.change_threshold:  # if conf >= conf* then
                     theta = theta1  # theta <- theta'
                     conf = conf1  # conf* <- conf
                     print('[adv 更新置信 +：]' + str(conf1))
-                conf2 = self.modelApi.get_y_conf(image2, label)
+                conf2 = self.getFitness(image2, label)
                 if conf > conf2 + self.change_threshold:  # if conf >= conf* then
                     theta = theta2
                     conf = conf2
@@ -54,8 +74,11 @@ class KR(SMLB):
                     saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
                     print(
                         "[advLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (theta.phi, theta.l, theta.b, theta.w, theta.alpha))
-                    res_image.show()
                     res_image.save(saveFile)
+                    close_time = time.time()
+                    print("[advLB] 迁移性信息" + str(self.showTransfer(res_image, label)))
+                    print("[advLB] 耗时%f, 平均一次查询时间为 %f ms" % (
+                        close_time - open_time, (close_time - open_time) / times * 1000))
                     return theta, times  # return theta
 
         print("[advLB] 攻击失败")

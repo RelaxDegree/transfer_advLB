@@ -9,6 +9,7 @@ class Rn50(ModelApi):
 
     def __init__(self):
         # 加载预训练的ResNet模型
+        self.name = "ResNet50"
         self.model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
