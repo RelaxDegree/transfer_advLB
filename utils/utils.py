@@ -100,13 +100,13 @@ log_root = 'log.csv'
 test_root = 'test.csv'
 
 
-def write_log(label, argmax, theta, conf_before, conf_after, times):
+def write_log(label, argmax, theta, conf_before, conf_after, times, modelName):
     time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     with open('adv/' + log_root, 'a') as f:
         writer = csv.writer(f)
         writer.writerow(
             [time_str, label, argmax, conf_before, conf_after, theta.phi, theta.l, theta.b, theta.w, theta.alpha,
-             times])
+             times,modelName])
 
 
 def write_log_error(label):

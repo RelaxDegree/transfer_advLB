@@ -4,13 +4,11 @@ from PIL import Image
 import cv2
 from utils.utils import *
 
-root = '../valdata/'
-
 
 def simple_add(base_img, light_pattern, alpha=1.0):
     light_pattern = light_pattern.astype(np.float32)
     resized_light_pattern = cv2.resize(light_pattern, (base_img.shape[1], base_img.shape[0]))
-    c = cv2.addWeighted(base_img, 1.0, resized_light_pattern, alpha * 2, 0)
+    c = cv2.addWeighted(base_img, 0.7, resized_light_pattern, alpha * 3, 0)
     return c
 
 
@@ -81,8 +79,9 @@ def makeLB(vector, image):
 
     return result
 
-
-# image = Image.open(root + 'n0153282900000157.jpg')
+# root = '../valdata/'
+#
+# image = Image.open('stop.jpg')
 # theta = Vector(image)
 # theta.alpha = 0.8
 # theta.b = 110

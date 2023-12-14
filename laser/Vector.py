@@ -10,10 +10,10 @@ class Vector(AbstractVector):
     maxLaserWidth = 20
     # basic
     Q = [[8, 0, 0, 0, 0],  # phi
-         [0, 0.01, 0, 0, 0],  # l
-         [0, 0, 1, 0, 0],  # b
+         [0, 0.03, 0, 0, 0],  # l
+         [0, 0, 7, 0, 0],  # b
          [0, 0, 0, 0.5, 0],  # w
-         [0, 0, 0, 0, 0.01]]  # alpha
+         [0, 0, 0, 0, 0.05]]  # alpha
 
     def __init__(self, *args):
         super().__init__(*args)

@@ -21,6 +21,3 @@ class Vit_b(ModelVitApi):
 
     def get_y_conf(self, img, label):
         return super().get_y_conf(img, label)
-
-
-

@@ -76,7 +76,7 @@ class PSO(SMLB):
             if argmax == self.label and fitness < global_best_fitness:
                 global_best_fitness = fitness
                 global_best_theta = copy.copy(particle.theta)
-        print('[adv最低分数] conf:%f' % global_best_fitness)
+        print('[pso最低分数] conf:%f' % global_best_fitness)
 
         return global_best_theta, global_best_fitness
 
@@ -93,26 +93,27 @@ class PSO(SMLB):
 
         self.initialize_particles()
         global_best_theta = self.update_global_best()[0]
-
+        best_theta = global_best_theta
         for _ in range(self.max_iterations):
+            if _ > 15:
+                return global_best_theta, -1
             for particle in self.particles:
                 if particle.argmax != self.label and particle.conf > particle.conf_sec + self.threshold:
-                    print("[advLB] 标签%s被攻击为%s" % (self.label, particle.argmax))
-                    print("[advLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (particle.theta.phi, particle.theta.l,
+                    print("[psoLB] 标签%s被攻击为%s" % (self.label, particle.argmax))
+                    print("[psoLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (particle.theta.phi, particle.theta.l,
                                                                        particle.theta.b, particle.theta.w,
                                                                        particle.theta.alpha))
                     saveFile = 'adv/' + str(self.label) + '--' + str(particle.argmax) + '--' + str(
                         particle.conf) + '.jpg'
                     makeLB(particle.theta, self.image).save(saveFile)
-                    write_log(self.label, particle.argmax, particle.theta, self.conf, particle.conf, self.atk_times)
+                    write_log(self.label, particle.argmax, particle.theta, self.conf, particle.conf, self.atk_times, self.modelApi.name)
                     return particle.theta, self.atk_times
             for particle in self.particles:
                 particle.update_velocity(global_best_theta, self.inertia_weight, self.cognitive_weight,
                                          self.social_weight)
                 particle.update_theta()
             global_best_theta = self.update_global_best()[0]
-        print("[advLB] 未找到攻击样本")
+        print("[psoLB] 未找到攻击样本")
         saveFile = 'adv/' + str(self.label) + '--' + str(self.conf) + '.jpg'
         self.image.save(saveFile)
-        theta = None
-        return theta, self.atk_times
+        return global_best_theta, -1

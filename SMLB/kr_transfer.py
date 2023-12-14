@@ -1,9 +1,11 @@
 import time
+import random
+
 from SMLB.smlb import SMLB
 from utils.utils import write_log
 from laser.laser import makeLB
 
-savefilename = 'adv/'
+savefilename = 'tdata/'
 
 
 class TKR(SMLB):
@@ -28,6 +30,12 @@ class TKR(SMLB):
             score = api.get_y_conf(img, label)
             lst.append((api.name, score))
         return lst
+
+    def isEnd(self, image, label):
+        for api in self.modelApis:
+            if api.get_conf(image)[0][0] == label:
+                return False
+        return True
 
     def getAdvLB(self, **kwargs):
         open_time = time.time()
@@ -67,16 +75,23 @@ class TKR(SMLB):
                     print('[adv 更新置信 -：]' + str(conf2))
                 res_image = makeLB(theta, image)
                 # print("[advLB]")
-                argmax, now_conf = self.modelApi.get_conf(res_image)[0]
-                if argmax != label and now_conf > conf + self.threshold:  # if argmax != label then
-                    print("[advLB] 标签%s被攻击为%s" % (label, argmax))
+                # argmax, now_conf = self.modelApi.get_conf(res_image)[0]
+                # if argmax != label and now_conf > conf + self.threshold:  # if argmax != label then
+                if self.isEnd(res_image, label):
+                    argmax, now_conf = self.modelApi.get_conf(res_image)[0]
+                    if label == argmax:
+                        print("[advTLB] 对抗样本无效")
+                        return None, times
                     write_log(label, argmax, theta, conf_before, conf, times)
+                    print("[advLB] 标签%s被攻击为%s" % (label, argmax))
                     saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
                     print(
                         "[advLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (theta.phi, theta.l, theta.b, theta.w, theta.alpha))
                     res_image.save(saveFile)
+                    image.save(savefilename + str(label) + '原图.jpg')
                     close_time = time.time()
                     print("[advLB] 迁移性信息" + str(self.showTransfer(res_image, label)))
+                    print("[advLB] 目标模型检测为%s, 置信度%f" % (argmax, now_conf))
                     print("[advLB] 耗时%f, 平均一次查询时间为 %f ms" % (
                         close_time - open_time, (close_time - open_time) / times * 1000))
                     return theta, times  # return theta
