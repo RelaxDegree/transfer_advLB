@@ -88,6 +88,9 @@ class Vector(AbstractVector):
             q[dim] = round(q[dim] * size, 5)
         return q
 
+    def particleFactory(self, image, samples):
+        return Particle(image, samples)
+
     def factory(self, *args):
         if len(args) == 1 and not isinstance(args[0], list):
             if isinstance(args[0], PIL.Image.Image):

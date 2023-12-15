@@ -8,7 +8,7 @@ from utils.utils import *
 def simple_add(base_img, light_pattern, alpha=1.0):
     light_pattern = light_pattern.astype(np.float32)
     resized_light_pattern = cv2.resize(light_pattern, (base_img.shape[1], base_img.shape[0]))
-    c = cv2.addWeighted(base_img, 0.7, resized_light_pattern, alpha * 3, 0)
+    c = cv2.addWeighted(base_img, 1, resized_light_pattern, alpha * 2, 0)
     return c
 
 
@@ -54,10 +54,39 @@ def tube_light_generation_by_func(k, b, alpha, beta, wavelength, w=400, h=400):
     # if distances == 0:
     #     attenuation = 1
     # else:
-    attenuation = beta / (distances * distances)
+    attenuation = math.sqrt(beta) / (distances * distances)
+
     tube_light[attenuation_mask, 0] = c0 * attenuation[attenuation_mask]
     tube_light[attenuation_mask, 1] = c1 * attenuation[attenuation_mask]
     tube_light[attenuation_mask, 2] = c2 * attenuation[attenuation_mask]
+
+    return tube_light
+
+
+def tube_light_generation_by_lines_same(vectors, w=400, h=400):
+    tube_light = np.zeros((h, w, 3), dtype=np.float32)
+    x_coords = np.arange(w)
+    y_coords = np.arange(h)
+    x_grid, y_grid = np.meshgrid(x_coords, y_coords)
+    alpha, wavelength = vectors[0].alpha, vectors[0].phi
+    c = np.array(wavelength_to_rgb(wavelength)) * alpha
+
+    for vector in vectors:
+        k, b,  beta = vector.l, vector.b, vector.w
+        t = math.sqrt(1 + k * k)
+
+        distances = np.abs(k * x_grid - y_grid + b) / t
+        full_light_end_y = int(math.sqrt(beta) + 0.5)
+        light_end_y = int(math.sqrt(beta * 20) + 0.5)
+
+        # 完全亮度区域
+        full_light_mask = distances <= full_light_end_y
+        tube_light[full_light_mask] += c
+
+        # 衰减区域
+        attenuation_mask = (full_light_end_y < distances) & (distances <= light_end_y)
+        attenuation = beta / (distances[attenuation_mask] ** 2)
+        tube_light[attenuation_mask] += (c * attenuation[:, None])
 
     return tube_light
 
@@ -79,6 +108,15 @@ def makeLB(vector, image):
 
     return result
 
+
+def multiLB(vectors, image):
+    tube_light = tube_light_generation_by_lines_same(vectors, w=image.size[0], h=image.size[1])
+    img = np.asarray(image.convert('RGB'), dtype=np.float32)
+    img_with_light = simple_add(img, tube_light * 255.0, alpha=1.0)
+    img_with_light = np.clip(img_with_light, 0.0, 255.0)
+    result = Image.fromarray(np.uint8(img_with_light))
+
+    return result
 # root = '../valdata/'
 #
 # image = Image.open('stop.jpg')

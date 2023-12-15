@@ -1,8 +1,9 @@
-import os
+import tkinter as tk
+from PIL import ImageTk
+from tkinter import messagebox, ttk
+import cv2
 import random
-from SMLB.pso_transfer import TPSO
-from SMLB.pso import PSO
-
+import os
 from PIL import Image
 from utils.utils import test_log
 from SMLB.k_restart import KR
@@ -14,108 +15,267 @@ from model.dn121 import Dn121
 from model.swin import Swin_b
 from model.vitB import Vit_b
 from laser.Vector import Vector
+from laser.Constained_Vector import Cons_Vector
+import time
+from laser.laser import makeLB, multiLB
+from utils.utils import image_transformer
+# tkinter GUI 超参数
+laser_size = 10
+img = None
+laserMask = False
+multiLaserMask = False
+laser = None
+laserList = []
+FPS = 100
+# 创建视频捕捉对象
+cap = cv2.VideoCapture(1)
 
+# 目标模型超参数
+# 1 基本实例
 rn50 = Rn50()
 mbv2 = Mbv2()
 dn121 = Dn121()
 vit_b = Vit_b()
 swin = Swin_b()
-root = 'E:\pythonProject\\nips2017\\images'
 random.seed(3407)
-data_root = 'dataset/'
+n_vct = Vector()
+c_vct = Cons_Vector()
+# 2 超参数设置
+target_model = rn50
+vct = c_vct
+atk_kr = KR(target_model, vct)
+atk = PSO(target_model, vct)
 
 
-# img = Image.open("3.jpg")
+# 510 绿色 750 红色  440 蓝色 415 紫色
+# 下拉框选择事件
+def on_combobox_select(event):
+    # 获取选中的值
+    global target_model
+    selected_value = combobox.get()
+    if selected_value == 'Resnet50':
+        target_model = rn50
+    elif selected_value == 'MobileNetV2':
+        target_model = mbv2
+    elif selected_value == 'DenseNet121':
+        target_model = dn121
+    elif selected_value == 'Swin-B':
+        target_model = swin
+    elif selected_value == 'ViT-B':
+        target_model = vit_b
 
-# print(dn121.get_conf(img))
-# print(rn50.get_conf(img))
-# print(mbv2.get_conf(img))
-# print(vit_b.get_conf(img))
-# print(swin.get_conf(img))
-# pt = TPSO(mbv2, Vector)
-# pt = PSO(mbv2, Vector)
-# pt.setModels([rn50, mbv2, dn121, vit_b, swin])
-# pt.getAdvLB(num_particles=30, max_iterations=100, image=img, inertia_weight=0.4, cognitive_weight=1, social_weight=1)
-def testOne(filename, model, times, dataset='nips-2017'):
-    vct = Vector()
-    atk_kr = KR(mbv2, vct)
 
-    atk = PSO(mbv2, vct)
+# 弹窗，展示当前图片以及标签
+def show_image_window(image, text):
+    # 创建新的Toplevel窗口
+    image_window = tk.Toplevel(root)
+    image_window.title(text)
+    # 显示图片
+    image_label = tk.Label(image_window)
+    image_label.pack()
+    photo = ImageTk.PhotoImage(image=image)
+    image_label.configure(image=photo)
+    image_label.image = photo
+
+
+# 攻击当前图片，产生多个对抗激光
+def multi_adv():
+    update_setting()
+    global img
+    global multiLaserMask
+    global laserList
     suc_times = 0
     suc_num = 0
-    file_list = os.listdir(filename)
-
-    for _ in range(times):
-        img_name = random.choice(file_list)
-        # if _  == 4 or _ == 6:
-        #     continue
-        # img_name = 'n0274717700001290.jpg'
-        img = Image.open(root + '\\' + img_name)
-        # theta, atk_times = atk.getAdvLB(image=img, S=30, tmax=100, k=10)
-        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
+    for i in range(laser_size):
+        new_img = image_transformer(img) if i > 0 else img
+        theta, atk_times = atk.getAdvLB(image=new_img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
                                         social_weight=1.4, max_iterations=100)
         if atk_times == -1:
-            theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
+            theta, atk_times = atk_kr.getAdvLB(image=new_img, S=30, tmax=100, k=3, theta=theta)
             if theta is None:
                 print('攻击失败')
                 continue
         suc_times += atk_times
         suc_num += 1
         print('攻击成功 查询次数 %d' % (suc_times / suc_num))
-        img.save('dataset/' + img_name)
-    test_log(model=model, method='pso', dateset=dataset, suc_num=suc_num, suc_times=suc_times, times=times)
+        laserList.append(theta)
+
+    multiLaserMask = True
 
 
-def testTransfer(filename, model, times=1, dataset='nips-2017'):
-    vct = Vector()
-    atker = TKR(mbv2, vct)
-    # atker = TPSO(mbv2, vct)
-    atker.setModels([rn50, dn121])
-    # atker.setModels([rn50, mbv2, dn121, vit_b, swin])
-
+# 攻击当前图片，产生一个对抗激光
+def adv():
+    update_setting()
+    global img
+    global laserMask
+    global laser
     suc_times = 0
     suc_num = 0
-    for _ in range(times):
-
-        file_list = os.listdir(filename)
-        img_name = random.choice(file_list)
-        # img_name = '2.jpg'
-        img = Image.open(root + '\\' + img_name)
-        # if _ < 5:
-        #     continue
-        theta, atk_times = atker.getAdvLB(image=img, S=30, tmax=100, k=10)
-        # theta, atk_times = atker.getAdvLB(image=img, num_particles=30, inertia_weight=0.4, cognitive_weight=1.4, social_weight=1.4,max_iterations=100)
-
+    theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
+                                    social_weight=1.4, max_iterations=100)
+    if atk_times == -1:
+        theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
         if theta is None:
             print('攻击失败')
-        else:
-            suc_times += atk_times
-            suc_num += 1
-            print('攻击成功 平均查询次数 %d' % (suc_times / suc_num))
-    test_log(model=model, method='pso', dateset=dataset, suc_num=suc_num, suc_times=suc_times, times=times)
+            messagebox.showinfo("攻击结果", "攻击失败！")
+            return
+    suc_times += atk_times
+    suc_num += 1
+    print('攻击成功 查询次数 %d' % (suc_times / suc_num))
+    laserMask = True
+    laser = theta
 
 
-testOne(root, 'mbv2', 100)
+# 验证当前图片
+def val():
+    conf_list = atk.modelApi.get_conf(img)
+    show_image_window(img, "%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
 
 
-# testTransfer(data_root, 'mbv2',10)
+# 将图像上所有提示激光清除
+def reset():
+    print('重置')
+    global cap
+    global laserMask
+    global multiLaserMask
+    global laserList
+    multiLaserMask = False
+    laserList = []
+    laserMask = False
+    root.after_cancel(update_frame.timer_id)
+    cap = cv2.VideoCapture(1)
+    update_frame()
 
 
-def testAll(filename, model):
-    vct = Vector()
-    kr = KR(rn50, vct)
-    suc_times = 0
-    times = 0
-    suc_num = 0
-    file_list = os.listdir(filename)
-    print(len(file_list))
-    for img_name in file_list:
-        theta, atk_times = kr.getAdvLB(image=Image.open(root + '\\' + img_name), S=10, tmax=100, k=10)
-        times += atk_times
-        if theta is None:
-            print('攻击失败')
-        else:
-            suc_times += atk_times
-            suc_num += 1
-            print('攻击成功')
-    test_log(model=model, method='kr', dateset='mini-imagenet', suc_num=suc_num, suc_times=suc_times, times=times)
+def update_frame():
+    global img
+    global laserMask
+    global laser
+    global multiLaserMask
+    global laserList
+    k = 1.5
+    VIDEO_SIZE = (int(1152 / k), int(648 / k))
+    ret, frame = cap.read()
+    if not ret:
+        print("无法读取视频帧")
+        return
+    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    img = img.resize(VIDEO_SIZE, Image.LANCZOS)
+    if laserMask:
+        photo = ImageTk.PhotoImage(image=makeLB(laser, img))
+    elif multiLaserMask:
+        photo = ImageTk.PhotoImage(image=multiLB(laserList, img))
+
+    else:
+        photo = ImageTk.PhotoImage(image=img)
+    video_label.configure(image=photo)
+    video_label.image = photo
+    timer_id = root.after(int(1000 / FPS), update_frame)  # 每隔10毫秒更新画面
+    update_frame.timer_id = timer_id
+
+
+# 更新激光参数
+def update_setting():
+    if phi_entry.get() == '' or width_entry.get() == '' or alpha_entry.get() == '':
+        messagebox.showwarning("警告", "请输入参数")
+        return
+    c_vct.set_laser(float(phi_entry.get()), float(width_entry.get()), float(alpha_entry.get()))
+
+
+# 单选框
+def selected():
+    if color.get() == 'Red':
+        text_phi.set('750')
+    elif color.get() == 'Green':
+        text_phi.set('510')
+    elif color.get() == 'Blue':
+        text_phi.set('440')
+
+
+# 检查视频捕捉对象是否成功打开
+if not cap.isOpened():
+    print("无法打开视频流")
+    exit()
+start_time = time.time()
+
+# ======================================GUI======================================
+root = tk.Tk()
+root.title("实时摄像头画面")
+# 单选按钮的值
+color = tk.StringVar(value='Red')
+# 激光参数
+text_phi = tk.StringVar(value='750')
+text_width = tk.StringVar(value='20')
+text_alpha = tk.StringVar(value='0.7')
+# 视频标签
+video_label = tk.Label(root)
+video_label.pack(padx=10, pady=10)
+
+# 更新帧
+update_frame()
+
+# 按钮Frame
+buttons_frame = tk.Frame(root)
+buttons_frame.pack(pady=10)
+
+# 创建按钮并添加到按钮Frame
+button1 = tk.Button(buttons_frame, text="生成对抗激光", command=lambda: adv())
+button1.pack(side=tk.LEFT, padx=10)
+
+button2 = tk.Button(buttons_frame, text="生成对抗激光组", command=lambda: multi_adv())
+button2.pack(side=tk.LEFT, padx=10)
+
+button3 = tk.Button(buttons_frame, text="查询当前分类", command=lambda: val())
+button3.pack(side=tk.LEFT, padx=10)
+
+button4 = tk.Button(buttons_frame, text="重置画面", command=lambda: reset())
+button4.pack(side=tk.LEFT, padx=10)
+
+# 下拉选择框
+label = tk.Label(buttons_frame, text="模型选择")
+label.pack(side=tk.LEFT, padx=10)
+choices = ['ResNet50', 'MobileNet-V2', 'DenseNet-121', 'Vit-B', 'Swin-B', 'WRN-101']
+combobox = ttk.Combobox(buttons_frame, values=choices)
+combobox.set("ResNet50")  # 设置默认值
+combobox.bind("<<ComboboxSelected>>", on_combobox_select)  # 绑定选择事件
+combobox.pack(pady=10)
+
+# 创建红色单选按钮
+red_radio = tk.Radiobutton(root, text="红色", variable=color, value="Red", fg="red", command=selected)
+red_radio.pack(side=tk.LEFT)
+
+# 创建绿色单选按钮
+green_radio = tk.Radiobutton(root, text="绿色", variable=color, value="Green", fg="green", command=selected)
+green_radio.pack(side=tk.LEFT)
+
+# 创建蓝色单选按钮
+blue_radio = tk.Radiobutton(root, text="蓝色", variable=color, value="Blue", fg="blue", command=selected)
+blue_radio.pack(side=tk.LEFT)
+
+# 输入框Frame
+input_frame = tk.Frame(root)
+input_frame.pack(pady=10)
+
+# 波长
+laser_phi = tk.Label(input_frame, text="波长:")
+laser_phi.pack(side=tk.LEFT, padx=10)
+phi_entry = tk.Entry(input_frame, textvariable=text_phi)
+phi_entry.pack(side=tk.LEFT, padx=10)
+
+# 宽度
+laser_width = tk.Label(input_frame, text="宽度:")
+laser_width.pack(side=tk.LEFT, padx=10)
+width_entry = tk.Entry(input_frame, textvariable=text_width)
+width_entry.pack(side=tk.LEFT, padx=10)
+
+# 强度
+laser_alpha = tk.Label(input_frame, text="强度:")
+laser_alpha.pack(side=tk.LEFT, padx=10)
+alpha_entry = tk.Entry(input_frame, textvariable=text_alpha)
+alpha_entry.pack(side=tk.LEFT, padx=10)
+
+root.mainloop()
+
+# 释放视频捕捉对象和窗口
+cap.release()
+cv2.destroyAllWindows()

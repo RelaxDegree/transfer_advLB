@@ -8,7 +8,7 @@ savefilename = 'adv/'
 
 
 class KR(SMLB):
-    threshold = 0.01
+    threshold = 0.02
     change_threshold = 0.0
 
     def getAdvLB(self, **kwargs):
@@ -56,7 +56,7 @@ class KR(SMLB):
                 res_image = makeLB(theta, image)
                 # print("[advLB]")
                 argmax, now_conf = self.modelApi.get_conf(res_image)[0]
-                if conf < 0.1 and flg == True:
+                if conf < 0.1 and flg:
                     flg = False
                     res_image.show()
                     print(self.modelApi.get_conf(res_image))

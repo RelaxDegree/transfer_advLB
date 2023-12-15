@@ -1,27 +1,34 @@
 import math
 import random
-
+from laser.AbstractVector import AbstractVector
 from PIL import Image
 import PIL
 
+phi = 445
+w = 30
+alpha = 1.0
 
 # 固定了波长、宽度和光强
-class Cons_Vector:
-    phi = 445
-    w = 30
-    alpha = 1.0
+class Cons_Vector(AbstractVector):
     # basic
     Q = [
-        [0, 0.01, 0, 0, 0],  # l
-        [0, 0, 1, 0, 0],  # b
+        [0, 0.03, 0, 0, 0],  # l
+        [0, 0, 5, 0, 0],  # b
     ]
 
     def set_laser(self, phi_, w_, alpha_):
-        self.phi = phi_
-        self.w = w_
-        self.alpha = alpha_
+        global phi, w, alpha
+        phi = phi_
+        w = w_
+        alpha = alpha_
+        print(phi, w, alpha)
+
 
     def __init__(self, *args):
+        super().__init__(*args)
+        self.phi = phi
+        self.w = w
+        self.alpha = alpha
         if len(args) == 1 and not isinstance(args[0], list):
             if isinstance(args[0], PIL.Image.Image):
                 image_height = args[0].size[0]
@@ -96,6 +103,21 @@ class Cons_Vector:
             self.b = args[2]
             self.w = args[3]
             self.alpha = args[4]
+        return Cons_Vector(self.phi, self.l, self.b, self.w, self.alpha)
+
+    def particleFactory(self, image, samples):
+        return Cons_Particle(image, samples)
+    @staticmethod
+    def latin_transform(img, samples):
+
+        new_samples = []
+        for sample in samples:
+            sample[1] = -math.pi / 2 + math.pi * sample[1]
+            sample[2] = img.size[1] * sample[2]
+            new_samples.append(sample)
+
+        return samples
+        return new_samples
 
 
 import copy

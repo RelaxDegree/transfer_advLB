@@ -10,7 +10,7 @@ import numpy as np
 
 
 class PSO(SMLB):
-    threshold = 0.01
+    threshold = 0.02
 
     def setHyperParams(self, **kwargs):
         self.num_particles = kwargs['num_particles']
@@ -55,7 +55,7 @@ class PSO(SMLB):
         # 生成拉丁超立方采样样本
         samples = self.latin_hypercube_sampling(5, self.num_particles)
         for i in range(self.num_particles):
-            particle = Particle(self.image, samples[i])
+            particle = self.vectorApi.particleFactory(self.image, samples[i])
             self.particles.append(particle)
 
     def update_global_best(self):
@@ -92,11 +92,11 @@ class PSO(SMLB):
         self.setHyperParams(**kwargs)
 
         self.initialize_particles()
-        global_best_theta = self.update_global_best()[0]
+        global_best_theta, best_fitness = self.update_global_best()
         best_theta = global_best_theta
         for _ in range(self.max_iterations):
             if _ > 15:
-                return global_best_theta, -1
+                return best_theta, -1
             for particle in self.particles:
                 if particle.argmax != self.label and particle.conf > particle.conf_sec + self.threshold:
                     print("[psoLB] 标签%s被攻击为%s" % (self.label, particle.argmax))
@@ -112,6 +112,9 @@ class PSO(SMLB):
                 particle.update_velocity(global_best_theta, self.inertia_weight, self.cognitive_weight,
                                          self.social_weight)
                 particle.update_theta()
+                if particle.argmax == self.label and particle.conf < best_fitness:
+                    best_fitness = particle.conf
+                    best_theta = particle.theta
             global_best_theta = self.update_global_best()[0]
         print("[psoLB] 未找到攻击样本")
         saveFile = 'adv/' + str(self.label) + '--' + str(self.conf) + '.jpg'

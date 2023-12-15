@@ -30,6 +30,7 @@
                 Peak frequency response shifts to 498 nm.
 '''
 import csv
+import random
 import sys
 import os
 import traceback
@@ -38,6 +39,9 @@ import time
 import logging
 import time
 import datetime
+
+import numpy as np
+from PIL import Image
 
 
 def wavelength_to_rgb(wavelength, gamma=0.8):
@@ -106,7 +110,7 @@ def write_log(label, argmax, theta, conf_before, conf_after, times, modelName):
         writer = csv.writer(f)
         writer.writerow(
             [time_str, label, argmax, conf_before, conf_after, theta.phi, theta.l, theta.b, theta.w, theta.alpha,
-             times,modelName])
+             times, modelName])
 
 
 def write_log_error(label):
@@ -122,3 +126,22 @@ def test_log(model, method, suc_times, times, suc_num, dateset):
         writer = csv.writer(f)
         writer.writerow(
             [time_str, model, method, dateset, times, suc_times, suc_num])
+
+
+def image_transformer(image, mean=0, sigma=15):
+    # 将图片转换为numpy数组
+    img_array = np.array(image)
+
+    # 生成高斯噪声
+    gaussian_noise = np.random.normal(mean, sigma, img_array.shape)
+
+    # 向图片中添加噪声
+    noisy_image_array = img_array + gaussian_noise
+
+    # 将数组值限制在[0, 255]范围内并转换为整数
+    noisy_image_array = np.clip(noisy_image_array, 0, 255).astype(np.uint8)
+
+    # 将numpy数组转换回图片
+    noisy_image = Image.fromarray(noisy_image_array)
+
+    return noisy_image

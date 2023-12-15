@@ -62,3 +62,6 @@ class AbstractVector:
 
     def factory(self, *args):
         pass
+
+    def particleFactory(self, image, samples):
+        pass
