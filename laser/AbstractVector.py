@@ -6,8 +6,8 @@ class AbstractVector:
     def __init__(self, *args):
         self.alpha = None
         self.w = None
-        self.b = None
-        self.l = None
+        self.q1 = None
+        self.q2 = None
         self.phi = None
 
     def __add__(self, other):
@@ -25,18 +25,14 @@ class AbstractVector:
             self.phi = 750
         if self.phi <= 380:
             self.phi = 380
-        if self.l >= math.pi / 2:
-            self.l = round(self.l, 5)
-            self.l -= int(self.l / math.pi + 0.5) * math.pi
-            self.l = round(self.l, 5)
-        if self.l <= -math.pi / 2:
-            self.l = round(self.l, 5)
-            self.l += -int(self.l / math.pi - 0.5) * math.pi
-            self.l = round(self.l, 5)
-        if self.b < 0:
-            self.b = 0
-        if self.b > image_height:
-            self.b = image_height
+        if self.q1 >= 1:
+            self.q1 = 1
+        if self.q1 <= 0:
+            self.q1 = 0
+        if self.q2 >= 1:
+            self.q2 = 1
+        if self.q2 <= 0:
+            self.q2 = 0
         if self.w < 10:
             self.w = 10
         if self.alpha < 0:
@@ -47,10 +43,10 @@ class AbstractVector:
     def print(self):
         print('[makeLB phi]', end=' ')
         print(self.phi)
-        print('[makeLB l]', end=' ')
-        print(self.l)
-        print('[makeLB b]', end=' ')
-        print(self.b)
+        print('[makeLB q1]', end=' ')
+        print(self.q1)
+        print('[makeLB q2]', end=' ')
+        print(self.q2)
         print('[makeLB w]', end=' ')
         print(self.w)
         print('[makeLB alpha]', end=' ')

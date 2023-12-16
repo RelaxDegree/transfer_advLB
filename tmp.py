@@ -49,18 +49,13 @@ def testOne(filename, model, times, dataset='nips-2017'):
 
     for _ in range(times):
         img_name = random.choice(file_list)
-        # if _  == 4 or _ == 6:
-        #     continue
-        # img_name = 'n0274717700001290.jpg'
         img = Image.open(root + '\\' + img_name)
-        from utils.utils import image_transformer
-        img = image_transformer(img)
-        img.show()
-        continue
-        # return
+
         # theta, atk_times = atk.getAdvLB(image=img, S=30, tmax=100, k=10)
-        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
-                                        social_weight=1.4, max_iterations=100)
+        # theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3)
+
+        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,inertia_weight_min=0.5, cognitive_weight=1.4,
+                                        social_weight=2, max_iterations=20)
         if atk_times == -1:
             theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
             if theta is None:

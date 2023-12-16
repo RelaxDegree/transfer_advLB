@@ -109,7 +109,7 @@ def write_log(label, argmax, theta, conf_before, conf_after, times, modelName):
     with open('adv/' + log_root, 'a') as f:
         writer = csv.writer(f)
         writer.writerow(
-            [time_str, label, argmax, conf_before, conf_after, theta.phi, theta.l, theta.b, theta.w, theta.alpha,
+            [time_str, label, argmax, conf_before, conf_after, theta.phi, theta.q1, theta.q2, theta.w, theta.alpha,
              times, modelName])
 
 

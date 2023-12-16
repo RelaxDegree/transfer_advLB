@@ -14,7 +14,10 @@ class KR(SMLB):
     def getAdvLB(self, **kwargs):
         open_time = time.time()
         image, S, tmax, k = kwargs['image'], kwargs['S'], kwargs['tmax'], kwargs['k']
-        theta = kwargs['theta']
+        if 'theta' not in kwargs.keys():
+            theta = self.vectorApi.factory(image)  # Initialization theta
+        else:
+            theta = kwargs['theta']
         label, conf_ = self.modelApi.get_conf(image)[0]  # conf* <- fy(x)
         times = 0
         print('[kr开始] label:%s conf:%f' % (label, conf_))
@@ -56,19 +59,19 @@ class KR(SMLB):
                 res_image = makeLB(theta, image)
                 # print("[advLB]")
                 argmax, now_conf = self.modelApi.get_conf(res_image)[0]
-                if conf < 0.1 and flg:
-                    flg = False
-                    res_image.show()
-                    print(self.modelApi.get_conf(res_image))
+                # if conf < 0.1 and flg:
+                #     flg = False
+                #     res_image.show()
+                #     print(self.modelApi.get_conf(res_image))
                 if argmax != label and now_conf > conf + self.threshold:  # if argmax != label then
                     print("[kr LB] 标签%s被攻击为%s" % (label, argmax))
                     write_log(label, argmax, theta, conf_before, conf, times, self.modelApi.name)
-                    saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
+                    # saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
                     print(
-                        "[kr LB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (theta.phi, theta.l, theta.b, theta.w, theta.alpha))
+                        "[kr LB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (theta.phi, theta.q1, theta.q2, theta.w, theta.alpha))
                     # res_image.show()
-                    res_image.save(saveFile)
-                    image.save(savefilename + str(label) + '原图.jpg')
+                    # res_image.save(saveFile)
+                    # image.save(savefilename + str(label) + '原图.jpg')
                     return theta, times  # return theta
 
         print("[kr LB] 攻击失败")

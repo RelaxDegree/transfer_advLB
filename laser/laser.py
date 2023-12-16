@@ -23,11 +23,10 @@ def gaussian_add(base_img, light_pattern, eps=128):
     return c
 
 
-def tube_light_generation_by_func(k, b, alpha, beta, wavelength, w=400, h=400):
+def tube_light_generation_by_func(q1, q2, alpha, beta, wavelength, w=400, h=400):
     full_light_end_y = int(math.sqrt(beta) + 0.5)
     light_end_y = int(math.sqrt(beta * 20) + 0.5)
     c = wavelength_to_rgb(wavelength)
-    t = math.sqrt(1 + k * k)
     c0 = c[0] * alpha
     c1 = c[1] * alpha
     c2 = c[2] * alpha
@@ -36,10 +35,29 @@ def tube_light_generation_by_func(k, b, alpha, beta, wavelength, w=400, h=400):
 
     # Create 2D grid of x and y coordinates
     x_grid, y_grid = np.meshgrid(x_coords, y_coords)
+    q1 *= (w + h)
+    q2 *= (w + h)
+    if q1 < w:
+        x1 = q1
+        y1 = 0
+    else:
+        x1 = w
+        y1 = q1 - w
+    if q2 < h:
+        x2 = 0
+        y2 = q2
+    else:
+        x2 = q2 - h
+        y2 = h
+    if x1 != x2:
+        k = (y1 - y2) / (x1 - x2)
+        b = (x1 * y2 - x2 * y1) / (x1 - x2)
 
-    # Calculate distances for all x and y coordinates in one go
-    distances = np.abs(k * x_grid - y_grid + b) / t
-
+        t = math.sqrt(1 + k * k)
+        # Calculate distances for all x and y coordinates in one go
+        distances = np.abs(k * x_grid - y_grid + b) / t
+    else:
+        distances = np.abs(x_grid - x1)
     # Create 3D array to represent tube_light, initially filled with zeros
     tube_light = np.zeros((h, w, 3))
 
@@ -54,8 +72,7 @@ def tube_light_generation_by_func(k, b, alpha, beta, wavelength, w=400, h=400):
     # if distances == 0:
     #     attenuation = 1
     # else:
-    attenuation = math.sqrt(beta) / (distances * distances)
-
+    attenuation = beta / (distances * distances + 1e-6)
     tube_light[attenuation_mask, 0] = c0 * attenuation[attenuation_mask]
     tube_light[attenuation_mask, 1] = c1 * attenuation[attenuation_mask]
     tube_light[attenuation_mask, 2] = c2 * attenuation[attenuation_mask]
@@ -72,10 +89,28 @@ def tube_light_generation_by_lines_same(vectors, w=400, h=400):
     c = np.array(wavelength_to_rgb(wavelength)) * alpha
 
     for vector in vectors:
-        k, b,  beta = vector.l, vector.b, vector.w
-        t = math.sqrt(1 + k * k)
-
-        distances = np.abs(k * x_grid - y_grid + b) / t
+        q1, q2,  beta =  vector.q1, vector.q2,vector.w
+        q1 *= (w + h)
+        q2 *= (w + h)
+        if q1 < w:
+            x1 = q1
+            y1 = 0
+        else:
+            x1 = w
+            y1 = q1 - w
+        if q2 < h:
+            x2 = 0
+            y2 = q2
+        else:
+            x2 = q2 - h
+            y2 = h
+        if x1 != x2:
+            k = (y1 - y2) / (x1 - x2)
+            b = (x1 * y2 - x2 * y1) / (x1 - x2)
+            t = math.sqrt(1 + k * k)
+            distances = np.abs(k * x_grid - y_grid + b) / t
+        else:
+            distances = np.abs(x_grid - x1)
         full_light_end_y = int(math.sqrt(beta) + 0.5)
         light_end_y = int(math.sqrt(beta * 20) + 0.5)
 
@@ -92,13 +127,13 @@ def tube_light_generation_by_lines_same(vectors, w=400, h=400):
 
 
 def makeLB(vector, image):
-    k = round(math.tan(vector.l), 2)
-    b = vector.b
+    q1 = vector.q1
+    q2 = vector.q2
     alpha = vector.alpha
     wl = vector.phi
     beta = vector.w
 
-    tube_light = tube_light_generation_by_func(k, b, alpha=alpha, beta=beta, wavelength=wl, w=image.size[0],
+    tube_light = tube_light_generation_by_func(q1, q2, alpha=alpha, beta=beta, wavelength=wl, w=image.size[0],
                                                h=image.size[1])
 
     img = np.asarray(image.convert('RGB'), dtype=np.float32)

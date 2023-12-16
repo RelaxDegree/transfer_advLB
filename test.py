@@ -26,9 +26,10 @@ laserMask = False
 multiLaserMask = False
 laser = None
 laserList = []
-FPS = 100
+FPS = 50
 # 创建视频捕捉对象
-cap = cv2.VideoCapture(1)
+CAMERA_ID = 0
+cap = cv2.VideoCapture(CAMERA_ID)
 
 # 目标模型超参数
 # 1 基本实例
@@ -88,8 +89,8 @@ def multi_adv():
     suc_num = 0
     for i in range(laser_size):
         new_img = image_transformer(img) if i > 0 else img
-        theta, atk_times = atk.getAdvLB(image=new_img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
-                                        social_weight=1.4, max_iterations=100)
+        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,inertia_weight_min=0.5, cognitive_weight=1.4,
+                                        social_weight=2, max_iterations=20)
         if atk_times == -1:
             theta, atk_times = atk_kr.getAdvLB(image=new_img, S=30, tmax=100, k=3, theta=theta)
             if theta is None:
@@ -111,8 +112,9 @@ def adv():
     global laser
     suc_times = 0
     suc_num = 0
-    theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight=0.02, cognitive_weight=1.4,
-                                    social_weight=1.4, max_iterations=100)
+    theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9, inertia_weight_min=0.5,
+                                    cognitive_weight=1.4,
+                                    social_weight=2, max_iterations=20)
     if atk_times == -1:
         theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
         if theta is None:
@@ -129,12 +131,12 @@ def adv():
 # 验证当前图片
 def val():
     conf_list = atk.modelApi.get_conf(img)
-    show_image_window(img, "%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
+    text_conf.set("%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
+    # show_image_window(img, "%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
 
 
 # 将图像上所有提示激光清除
 def reset():
-    print('重置')
     global cap
     global laserMask
     global multiLaserMask
@@ -142,9 +144,9 @@ def reset():
     multiLaserMask = False
     laserList = []
     laserMask = False
-    root.after_cancel(update_frame.timer_id)
-    cap = cv2.VideoCapture(1)
-    update_frame()
+    # root.after_cancel(update_frame.timer_id)
+    # cap = cv2.VideoCapture(CAMERA_ID)
+    # update_frame()
 
 
 def update_frame():
@@ -201,6 +203,8 @@ start_time = time.time()
 # ======================================GUI======================================
 root = tk.Tk()
 root.title("实时摄像头画面")
+# 实时置信标签
+text_conf = tk.StringVar(value='')
 # 单选按钮的值
 color = tk.StringVar(value='Red')
 # 激光参数
@@ -217,6 +221,9 @@ update_frame()
 # 按钮Frame
 buttons_frame = tk.Frame(root)
 buttons_frame.pack(pady=10)
+# 下拉选择框
+conf_label = tk.Label(buttons_frame, textvariable=text_conf)
+conf_label.pack(side=tk.LEFT, padx=10)
 
 # 创建按钮并添加到按钮Frame
 button1 = tk.Button(buttons_frame, text="生成对抗激光", command=lambda: adv())

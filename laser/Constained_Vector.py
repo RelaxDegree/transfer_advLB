@@ -8,12 +8,13 @@ phi = 445
 w = 30
 alpha = 1.0
 
+
 # 固定了波长、宽度和光强
 class Cons_Vector(AbstractVector):
     # basic
     Q = [
-        [0, 0.03, 0, 0, 0],  # l
-        [0, 0, 5, 0, 0],  # b
+        [0, 0.005, 0, 0, 0],  # l
+        [0, 0, 0.005, 0, 0],  # b
     ]
 
     def set_laser(self, phi_, w_, alpha_):
@@ -21,8 +22,6 @@ class Cons_Vector(AbstractVector):
         phi = phi_
         w = w_
         alpha = alpha_
-        print(phi, w, alpha)
-
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -34,42 +33,35 @@ class Cons_Vector(AbstractVector):
                 image_height = args[0].size[0]
             else:
                 image_height = args[0].shape[0]
-            self.l = random.uniform(-math.pi + 0.1, math.pi / 2 - 0.1)
-            self.l = round(self.l, 5)
-            self.b = random.uniform(image_height / 5, image_height * 4 / 5)
+            self.q1 = random.uniform(0, 1)
+            self.q2 = random.uniform(0, 1)
         elif len(args) == 1 and isinstance(args[0], list):
-            self.l = args[0][1]
-            self.b = args[0][2]
+            self.q1 = args[0][1]
+            self.q2 = args[0][2]
         elif len(args) == 5:
             self.phi = args[0]
-            self.l = args[1]
-            self.b = args[2]
+            self.q1 = args[1]
+            self.q2 = args[2]
             self.w = args[3]
             self.alpha = args[4]
 
-    # def __init__(self, phi, l, b, w, alpha):
-    #     self.phi = phi
-    #     self.l = l
-    #     self.b = b
-    #     self.w = w
-    #     self.alpha = alpha
     def __add__(self, other):
         try:
-            return Cons_Vector(self.phi, self.l + other.l, self.b + other.b, self.w, self.alpha)
+            return Cons_Vector(self.phi, self.q1 + other.q1, self.q2 + other.q2, self.w, self.alpha)
         except:
             self.print()
             other.print()
 
     def __sub__(self, other):
         try:
-            return Cons_Vector(self.phi, self.l - other.l, self.b - other.b, self.w,
+            return Cons_Vector(self.phi, self.q1 - other.q1, self.q2 - other.q2, self.w,
                                self.alpha)
         except:
             self.print()
             other.print()
 
     def __mul__(self, size):
-        return Cons_Vector(self.phi, self.l * size, self.b * size, self.w, self.alpha)
+        return Cons_Vector(self.phi, self.q1 * size, self.q2 * size, self.w, self.alpha)
 
     def clip(self, image):
         super().clip(image)
@@ -91,33 +83,32 @@ class Cons_Vector(AbstractVector):
                 image_height = args[0].size[0]
             else:
                 image_height = args[0].shape[0]
-            self.l = random.uniform(-math.pi + 0.1, math.pi / 2 - 0.1)
-            self.l = round(self.l, 5)
-            self.b = random.uniform(image_height / 5, image_height * 4 / 5)
+            self.q1 = random.uniform(0, 1)
+            self.q2 = random.uniform(0, 1)
         elif len(args) == 1 and isinstance(args[0], list):
-            self.l = args[0][1]
-            self.b = args[0][2]
+            self.q1 = args[0][1]
+            self.q2 = args[0][2]
         elif len(args) == 5:
             self.phi = args[0]
-            self.l = args[1]
-            self.b = args[2]
+            self.q1 = args[1]
+            self.q2 = args[2]
             self.w = args[3]
             self.alpha = args[4]
-        return Cons_Vector(self.phi, self.l, self.b, self.w, self.alpha)
+        return Cons_Vector(self.phi, self.q1, self.q2, self.w, self.alpha)
 
     def particleFactory(self, image, samples):
         return Cons_Particle(image, samples)
-    @staticmethod
-    def latin_transform(img, samples):
 
-        new_samples = []
-        for sample in samples:
-            sample[1] = -math.pi / 2 + math.pi * sample[1]
-            sample[2] = img.size[1] * sample[2]
-            new_samples.append(sample)
+    @staticmethod
+    def latin_transform(samples):
+
+        # new_samples = []
+        # for sample in samples:
+        #     sample[1] = -math.pi / 2 + math.pi * sample[1]
+        #     sample[2] = img.size[1] * sample[2]
+        #     new_samples.append(sample)
 
         return samples
-        return new_samples
 
 
 import copy
@@ -138,10 +129,10 @@ class Cons_Particle:
             self.velocity[i] *= inertia_weight
         theta1 = (self.best_theta - self.theta) * cognitive_weight
         theta2 = (global_best_theta - self.theta) * social_weight
-        self.velocity[1] += random.uniform(0, 1) * theta1.l + random.uniform(0, 1) * theta2.l
-        self.velocity[2] += random.uniform(0, 1) * theta1.b + random.uniform(0, 1) * theta2.b
+        self.velocity[1] += random.uniform(0, 1) * theta1.q1 + random.uniform(0, 1) * theta2.q2
+        self.velocity[2] += random.uniform(0, 1) * theta1.q1 + random.uniform(0, 1) * theta2.q2
 
     def update_theta(self):
-        self.theta.l += self.velocity[1]
-        self.theta.b += self.velocity[2]
+        self.theta.q1 += self.velocity[1]
+        self.theta.q1 += self.velocity[2]
         self.theta.clip(self.image)
