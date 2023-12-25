@@ -37,8 +37,8 @@ class AbstractVector:
             self.w = 10
         if self.alpha < 0:
             self.alpha = 0
-        if self.alpha > 0.7:
-            self.alpha = 0.7
+        if self.alpha > 1:
+            self.alpha = 1
 
     def print(self):
         print('[makeLB phi]', end=' ')

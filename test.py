@@ -17,20 +17,20 @@ from model.vitB import Vit_b
 from laser.Vector import Vector
 from laser.Constained_Vector import Cons_Vector
 import time
-from laser.laser import makeLB, multiLB
+from laser.laser import onlyMakeLB, mergeLB, onlyMakeLBs
 from utils.utils import image_transformer
+
 # tkinter GUI 超参数
 laser_size = 10
 img = None
-laserMask = False
-multiLaserMask = False
-laser = None
-laserList = []
 FPS = 50
 # 创建视频捕捉对象
 CAMERA_ID = 0
 cap = cv2.VideoCapture(CAMERA_ID)
-
+# 产生的激光图像
+advLaser = None
+multiLaser = None
+laserAlpha = None
 # 目标模型超参数
 # 1 基本实例
 rn50 = Rn50()
@@ -43,7 +43,7 @@ n_vct = Vector()
 c_vct = Cons_Vector()
 # 2 超参数设置
 target_model = rn50
-vct = c_vct
+vct = n_vct
 atk_kr = KR(target_model, vct)
 atk = PSO(target_model, vct)
 
@@ -54,6 +54,7 @@ def on_combobox_select(event):
     # 获取选中的值
     global target_model
     selected_value = combobox.get()
+    print(selected_value)
     if selected_value == 'Resnet50':
         target_model = rn50
     elif selected_value == 'MobileNetV2':
@@ -64,11 +65,14 @@ def on_combobox_select(event):
         target_model = swin
     elif selected_value == 'ViT-B':
         target_model = vit_b
+    atk.setModelApi(target_model)
+    atk_kr.setModelApi(target_model)
 
 
 # 弹窗，展示当前图片以及标签
-def show_image_window(image, text):
+def show_image_window(imageFile, text):
     # 创建新的Toplevel窗口
+    image = Image.open(imageFile)
     image_window = tk.Toplevel(root)
     image_window.title(text)
     # 显示图片
@@ -83,40 +87,43 @@ def show_image_window(image, text):
 def multi_adv():
     update_setting()
     global img
-    global multiLaserMask
-    global laserList
+    global multiLaser
+    global laserAlpha
+    laserList = []
     suc_times = 0
     suc_num = 0
     for i in range(laser_size):
         new_img = image_transformer(img) if i > 0 else img
-        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,inertia_weight_min=0.5, cognitive_weight=1.4,
-                                        social_weight=2, max_iterations=20)
+        theta, atk_times, argmax, msg = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,
+                                                     inertia_weight_min=0.5, cognitive_weight=1.4,
+                                                     social_weight=2, max_iterations=20)
         if atk_times == -1:
-            theta, atk_times = atk_kr.getAdvLB(image=new_img, S=30, tmax=100, k=3, theta=theta)
+            theta, atk_times, argmax, msg = atk_kr.getAdvLB(image=new_img, S=30, tmax=100, k=3, theta=theta)
             if theta is None:
                 print('攻击失败')
                 continue
         suc_times += atk_times
         suc_num += 1
         print('攻击成功 查询次数 %d' % (suc_times / suc_num))
-        laserList.append(theta)
-
-    multiLaserMask = True
-
+        laserList.append((theta, argmax))
+        laserAlpha = theta.alpha
+    multiLaser = onlyMakeLBs(laserList, img)
+    show_image_window("highFreRegion.png", "敏感区域")
 
 # 攻击当前图片，产生一个对抗激光
 def adv():
     update_setting()
     global img
-    global laserMask
-    global laser
+    global advLaser
+    global laserAlpha
     suc_times = 0
     suc_num = 0
-    theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9, inertia_weight_min=0.5,
-                                    cognitive_weight=1.4,
-                                    social_weight=2, max_iterations=20)
+    theta, atk_times, argmax, msg = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,
+                                                 inertia_weight_min=0.4,
+                                                 cognitive_weight=1.4,
+                                                 social_weight=2, max_iterations=20)
     if atk_times == -1:
-        theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
+        theta, atk_times, argmax, msg = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
         if theta is None:
             print('攻击失败')
             messagebox.showinfo("攻击结果", "攻击失败！")
@@ -124,26 +131,25 @@ def adv():
     suc_times += atk_times
     suc_num += 1
     print('攻击成功 查询次数 %d' % (suc_times / suc_num))
-    laserMask = True
-    laser = theta
+    text_conf.set(msg)
+    advLaser = onlyMakeLB(theta, img)
+    laserAlpha = theta.alpha
 
 
 # 验证当前图片
 def val():
     conf_list = atk.modelApi.get_conf(img)
-    text_conf.set("%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
+    text_conf.set("%s\n置信%f" % (conf_list[0][0], conf_list[0][1]))
     # show_image_window(img, "%s, 置信%f" % (conf_list[0][0], conf_list[0][1]))
 
 
 # 将图像上所有提示激光清除
 def reset():
     global cap
-    global laserMask
-    global multiLaserMask
-    global laserList
-    multiLaserMask = False
-    laserList = []
-    laserMask = False
+    global advLaser
+    global multiLaser
+    advLaser = None
+    multiLaser = None
     # root.after_cancel(update_frame.timer_id)
     # cap = cv2.VideoCapture(CAMERA_ID)
     # update_frame()
@@ -151,10 +157,7 @@ def reset():
 
 def update_frame():
     global img
-    global laserMask
-    global laser
-    global multiLaserMask
-    global laserList
+    global laserAlpha
     k = 1.5
     VIDEO_SIZE = (int(1152 / k), int(648 / k))
     ret, frame = cap.read()
@@ -163,10 +166,10 @@ def update_frame():
         return
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     img = img.resize(VIDEO_SIZE, Image.LANCZOS)
-    if laserMask:
-        photo = ImageTk.PhotoImage(image=makeLB(laser, img))
-    elif multiLaserMask:
-        photo = ImageTk.PhotoImage(image=multiLB(laserList, img))
+    if advLaser is not None:
+        photo = ImageTk.PhotoImage(image=mergeLB(laserAlpha, advLaser, img))
+    elif multiLaser is not None:
+        photo = ImageTk.PhotoImage(image=mergeLB(laserAlpha, multiLaser, img))
 
     else:
         photo = ImageTk.PhotoImage(image=img)
@@ -178,6 +181,7 @@ def update_frame():
 
 # 更新激光参数
 def update_setting():
+
     if phi_entry.get() == '' or width_entry.get() == '' or alpha_entry.get() == '':
         messagebox.showwarning("警告", "请输入参数")
         return
@@ -186,12 +190,18 @@ def update_setting():
 
 # 单选框
 def selected():
+    atk_kr.setVectorApi(c_vct)
+    atk.setVectorApi(c_vct)
     if color.get() == 'Red':
         text_phi.set('750')
     elif color.get() == 'Green':
         text_phi.set('510')
     elif color.get() == 'Blue':
         text_phi.set('440')
+    else:
+        print("default")
+        atk_kr.setVectorApi(n_vct)
+        atk.setVectorApi(n_vct)
 
 
 # 检查视频捕捉对象是否成功打开
@@ -206,7 +216,7 @@ root.title("实时摄像头画面")
 # 实时置信标签
 text_conf = tk.StringVar(value='')
 # 单选按钮的值
-color = tk.StringVar(value='Red')
+color = tk.StringVar(value='Grey')
 # 激光参数
 text_phi = tk.StringVar(value='750')
 text_width = tk.StringVar(value='20')
@@ -243,10 +253,13 @@ label = tk.Label(buttons_frame, text="模型选择")
 label.pack(side=tk.LEFT, padx=10)
 choices = ['ResNet50', 'MobileNet-V2', 'DenseNet-121', 'Vit-B', 'Swin-B', 'WRN-101']
 combobox = ttk.Combobox(buttons_frame, values=choices)
-combobox.set("ResNet50")  # 设置默认值
+# combobox.set("ResNet50")  # 设置默认值
 combobox.bind("<<ComboboxSelected>>", on_combobox_select)  # 绑定选择事件
 combobox.pack(pady=10)
 
+# 创建红色单选按钮
+default_radio = tk.Radiobutton(root, text="随机", variable=color, value="Grey", fg="grey", command=selected)
+default_radio.pack(side=tk.LEFT)
 # 创建红色单选按钮
 red_radio = tk.Radiobutton(root, text="红色", variable=color, value="Red", fg="red", command=selected)
 red_radio.pack(side=tk.LEFT)

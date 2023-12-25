@@ -7,13 +7,19 @@ from laser.AbstractVector import AbstractVector
 
 
 class Vector(AbstractVector):
-    maxLaserWidth = 20
+    maxLaserWidth = 30
     # basic
     Q = [[10, 0, 0, 0, 0],  # phi
-         [0, 0.005, 0, 0, 0],  # q1
-         [0, 0, 0.005, 0, 0],  # q2
-         [0, 0, 0, 0.5, 0],  # w
+         [0, 0.01, 0, 0, 0],  # q1
+         [0, 0, 0.01, 0, 0],  # q2
+         [0, 0, 0, 1, 0],  # w
          [0, 0, 0, 0, 0.05]]  # alpha
+
+    def get_lb(self):
+        return [380, 0, 0, 10, 0]
+
+    def get_ub(self):
+        return [750, 1, 1, 50, 1]
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -73,8 +79,8 @@ class Vector(AbstractVector):
     def clip(self, image):
         super().clip(image)
         image_height, image_width = image.size[0], image.size[1]
-        if self.w > min(image_width / 20, self.maxLaserWidth):
-            self.w = min(image_width / 20, self.maxLaserWidth)
+        if self.w > min(image_width / 10, self.maxLaserWidth):
+            self.w = min(image_width / 10, self.maxLaserWidth)
 
     def print(self):
         super().print()
@@ -124,7 +130,7 @@ class Vector(AbstractVector):
         new_samples = []
         for sample in samples:
             s = [380 + (750 - 380) * sample[0], sample[1], sample[2],
-                 10 + 10 * sample[3], 0.5 + 0.3 * sample[4]]
+                 10 + 30 * sample[3], 0.5 + 0.3 * sample[4]]
             new_samples.append(s)
         return new_samples
 

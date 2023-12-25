@@ -22,6 +22,18 @@ class Cons_Vector(AbstractVector):
         phi = phi_
         w = w_
         alpha = alpha_
+        self.phi = phi_
+        self.w = w_
+        self.alpha = alpha_
+        print("[set laser]phi: ", phi, "w: ", w, "alpha: ", alpha)
+
+    def get_lb(self):
+        global phi, w, alpha
+        return [phi - 1, 0, 0, w - 1, alpha - 0.05]
+
+    def get_ub(self):
+        global phi, w, alpha
+        return [phi + 1, 1, 1, w + 1, alpha + 0.05]
 
     def __init__(self, *args):
         super().__init__(*args)

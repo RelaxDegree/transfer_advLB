@@ -10,3 +10,9 @@ class SMLB:
 
     def setModels(self, modelApi):
         self.modelApis.append(modelApi)
+
+    def setVectorApi(self, vectorApi):
+        self.vectorApi = vectorApi
+
+    def setModelApi(self, modelApi):
+        self.modelApi = modelApi

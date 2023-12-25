@@ -1,4 +1,6 @@
 from SMLB.smlb import SMLB
+from sko.PSO import PSO as OriginalPSO
+
 import random
 import math
 from laser.Vector import Particle
@@ -8,120 +10,140 @@ from utils.utils import write_log
 import matplotlib.pyplot as plt
 import numpy as np
 
+# from mealpy.swarm_based.PSO import OriginalPSO
+
+threshold = 0.0
+image = None
+model_api = None
+vector_api = None
+atk_times = 0
+particles = []
+label, conf = None, 0
+
+
+# 定义函数
+def fitness_function(solution):
+    global image
+    global atk_times
+    global model_api
+    global label
+    theta = vector_api.factory(solution.tolist())
+    image_new = makeLB(theta, image)
+    atk_times += 1
+    return model_api.get_y_conf(image_new, label)
+
+
+problem_dict1 = {
+    "fit_func": fitness_function,
+    "lb": [380, 0, 0, 10, 0.2],
+    "ub": [750, 1, 1, 50, 1],
+    "minmax": "min",
+}
+# Use all available stopping conditions together
+term_dict = {
+    # "max_epoch": 1100,
+    # "max_fe": 0.07,
+    # "max_time": 60,
+    "max_early_stop": 8
+}
+
+
+def check_stop(gbest_x):
+    global vector_api
+    global model_api
+    global atk_times
+    atk_times += 1
+    while type(gbest_x) == np.ndarray:
+        if len(gbest_x) != 1:
+            break
+        gbest_x = gbest_x[0]
+
+    best_vector = vector_api.factory(gbest_x.tolist())
+    imgnew = makeLB(best_vector, image)
+    tuple1, tuple2 = model_api.get_conf(imgnew)[0:2]
+    argmax, confmax = tuple1
+    argsec, confsec = tuple2
+    if argmax != label and confmax > confsec + threshold:
+        return True
+    return False
+
 
 class PSO(SMLB):
-    threshold = 0.0
+    # 参数
 
     def setHyperParams(self, **kwargs):
+        global image
+        global label
+        global conf
+        global problem_dict1
+        global atk_times
+        global vector_api
+        vector_api = self.vectorApi
+        problem_dict1["lb"] = self.vectorApi.get_lb()
+        problem_dict1["ub"] = self.vectorApi.get_ub()
         self.num_particles = kwargs['num_particles']
-        self.image = kwargs['image']
+        image = kwargs['image']
         self.inertia_weight_max = kwargs['inertia_weight_max']
         self.inertia_weight_min = kwargs['inertia_weight_min']
         self.cognitive_weight = kwargs['cognitive_weight']
         self.social_weight = kwargs['social_weight']
         self.max_iterations = kwargs['max_iterations']
-        self.particles = []
-        self.label, self.conf = self.modelApi.get_conf(self.image)[0]
-        self.fitness = 0
-        self.atk_times = 0
-        self.best_theta = None
-        self.best_conf = None
-        print('[adv开始] label:%s conf:%f' % (self.label, self.conf))
+
+        label, conf = self.modelApi.get_conf(image)[0]
+        atk_times = 0
+        print('[adv开始] label:%s conf:%f' % (label, conf))
 
     def __init__(self, modelApi, vectorApi):
         super().__init__(modelApi, vectorApi)
-        self.fitness = None
+
+        global model_api, vector_api
+        model_api = self.modelApi
+        vector_api = self.vectorApi
         self.num_particles = None
-        self.image = None
-        self.inertia_weight = None
         self.inertia_weight_max = None
         self.inertia_weight_min = None
         self.cognitive_weight = None
         self.social_weight = None
         self.max_iterations = None
-        self.particles = None
-        self.label = None
-        self.conf = None
-        self.atk_times = None
-        self.best_theta = None
-        self.best_conf = None
-
-    def latin_hypercube_sampling(self, dimension, num_samples):
-        # 生成初始的拉丁超立方采样矩阵
-        initial_matrix = [[(i + random.random()) / num_samples for i in range(num_samples)] for _ in range(dimension)]
-
-        # 对每一列进行随机置换
-        for i in range(dimension):
-            random.shuffle(initial_matrix[i])
-
-        # 对每一列进行归一化，得到最终的拉丁超立方采样样本
-        samples = [[initial_matrix[i][j] for i in range(dimension)] for j in range(num_samples)]
-        return samples
-
-    def initialize_particles(self):
-        # 生成拉丁超立方采样样本
-        samples = self.latin_hypercube_sampling(5, self.num_particles)
-        transformed_samples = self.vectorApi.latin_transform(samples)
-        for i in range(self.num_particles):
-            particle = self.vectorApi.particleFactory(self.image, transformed_samples[i])
-            self.particles.append(particle)
-
-    def update_global_best(self):
-        global_best_fitness = float('inf')
-        global_best_theta = None
-        for particle in self.particles:
-            conf = self.evaluate_fitness(particle.theta)
-            # 当粒子的当前位置优于其历史最优位置时，或者当前状态为解时，更新其历史最优位置
-            if conf < particle.conf:
-                particle.best_theta = copy.copy(particle.theta)
-                particle.conf = conf
-
-            # 更新全局最优位置
-            if conf < global_best_fitness:
-                global_best_fitness = conf
-                global_best_theta = copy.copy(particle.theta)
-        # 更新历史全局最优位置
-        if self.best_conf is None or self.best_conf > global_best_fitness:
-            self.best_conf = global_best_fitness
-            self.best_theta = copy.copy(global_best_theta)
-        print('[pso最低分数] conf:%f' % self.best_conf)
-
-    def evaluate_fitness(self, theta):
-        image_new = makeLB(theta, self.image)
-        self.atk_times += 1
-        conf = self.modelApi.get_y_conf(image_new, self.label)
-        return conf
-
-    def update_weight(self, iter):
-        self.inertia_weight = self.inertia_weight_max - self.inertia_weight_min * iter / self.max_iterations
 
     def getAdvLB(self, **kwargs):
         self.setHyperParams(**kwargs)
+        global vector_api
+        max_iter = self.max_iterations
+        pop_size = self.num_particles
+        c1 = self.cognitive_weight
+        c2 = self.social_weight
+        w_min = self.inertia_weight_min
+        w_max = self.inertia_weight_max
 
-        self.initialize_particles()
-        self.update_global_best()
-        for _ in range(self.max_iterations):
-            self.update_weight(_)
-            tuple1, tuple2 = self.modelApi.get_conf(makeLB(self.best_theta, self.image))[0:2]
-            argmax, confmax = tuple1
-            argsec, confsec = tuple2
-            print(argmax, confmax, argsec, confsec)
-            self.atk_times += 1
-            if argmax != self.label and confmax > confsec + self.threshold:
-                print("[psoLB] 标签%s被攻击为%s" % (self.label, argmax))
-                print("[psoLB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (self.best_theta.phi, self.best_theta.q1,
-                                                                   self.best_theta.q2, self.best_theta.w,
-                                                                   self.best_theta.alpha))
-                saveFile = 'adv/' + str(self.label) + '--' + str(argmax) + '--' + str(confmax) + '.jpg'
-                makeLB(self.best_theta, self.image).save(saveFile)
-                write_log(self.label, argmax, self.best_theta, self.conf, confmax, self.atk_times, self.modelApi.name)
-                return self.best_theta, self.atk_times
-            for particle in self.particles:
-                particle.update_velocity(self.best_theta, self.inertia_weight, self.cognitive_weight,
-                                         self.social_weight)
-                particle.update_theta()
-            self.update_global_best()
-        print("[psoLB] 未找到攻击样本")
-        # saveFile = 'adv/' + str(self.label) + '--' + str(self.conf) + '.jpg'
-        # self.image.save(saveFile)
-        return self.best_theta, -1
+        # model = OriginalPSO(epoch, pop_size, c1, c2, w_min, w_max)
+        print(vector_api.get_lb())
+        print(vector_api.get_ub())
+        pso = OriginalPSO(func=fitness_function, n_dim=5, pop=pop_size, max_iter=max_iter, lb=vector_api.get_lb(),
+                          ub=vector_api.get_ub(), w=0.8, c1=c1, c2=c2, verbose=True)
+        pso.setCheck(check_stop)
+        pso.run(precision=1e-5, N=10)
+        # best_position, best_fitness = model.solve(problem_dict1, termination=term_dict)
+        # model.history.save_global_objectives_chart(filename="diagram/")
+        # model.history.save_local_objectives_chart(filename="diagram/")
+        global atk_times, threshold, label, conf, atk_times, model_api
+        gbest = pso.gbest_x
+        while type(gbest) == np.ndarray:
+            if len(gbest) != 1:
+                break
+            gbest = gbest[0]
+        best_vector = self.vectorApi.factory(gbest.tolist())
+        imgnew = makeLB(best_vector, image)
+        tuple1, tuple2 = self.modelApi.get_conf(imgnew)[0:2]
+        argmax, confmax = tuple1
+        argsec, confsec = tuple2
+        msg = None
+        if argmax != label and confmax > confsec + threshold:
+            best_vector.print()
+            msg = "源标签%s\n被误分类为%s" % (label, argmax)
+            print("[psoLB]" + msg)
+            saveFile = 'adv/' + str(label) + '--' + str(argmax) + '--' + str(confmax) + '.jpg'
+            imgnew.save(saveFile)
+            write_log(label, argmax, best_vector, conf, confmax, atk_times, model_api.name)
+            return best_vector, atk_times, argmax, msg
+        return best_vector, -1, argmax, msg

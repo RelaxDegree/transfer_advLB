@@ -64,17 +64,18 @@ class KR(SMLB):
                 #     res_image.show()
                 #     print(self.modelApi.get_conf(res_image))
                 if argmax != label and now_conf > conf + self.threshold:  # if argmax != label then
-                    print("[kr LB] 标签%s被攻击为%s" % (label, argmax))
+                    msg = "源标签标签%s\n被误分类为%s" % (label, argmax)
+                    print("[kr LB]" + msg)
                     write_log(label, argmax, theta, conf_before, conf, times, self.modelApi.name)
-                    # saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
+                    saveFile = savefilename + str(label) + '--' + str(argmax) + '--' + str(conf) + '.jpg'
                     print(
                         "[kr LB] 参数 波长:%f 位置:(%f %f) 宽度:%f 强度:%f" % (theta.phi, theta.q1, theta.q2, theta.w, theta.alpha))
                     # res_image.show()
-                    # res_image.save(saveFile)
+                    res_image.save(saveFile)
                     # image.save(savefilename + str(label) + '原图.jpg')
-                    return theta, times  # return theta
+                    return theta, times, argmax, msg  # return theta
 
-        print("[kr LB] 攻击失败")
+        print("[kr LB] 未找到对抗样本")
         close_time = time.time()
         print("[kr LB] 耗时%f, 平均一次查询时间为 %f ms" % (close_time - open_time, (close_time - open_time) / times * 1000))
-        return None, times
+        return None, times,None, None

@@ -48,16 +48,16 @@ def testOne(filename, model, times, dataset='nips-2017'):
     file_list = os.listdir(filename)
 
     for _ in range(times):
+        # img_name = random.choice(file_list)
+        print('第%d次攻击' % _)
         img_name = random.choice(file_list)
+        file_list.remove(img_name)
         img = Image.open(root + '\\' + img_name)
 
-        # theta, atk_times = atk.getAdvLB(image=img, S=30, tmax=100, k=10)
-        # theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3)
-
-        theta, atk_times = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,inertia_weight_min=0.5, cognitive_weight=1.4,
-                                        social_weight=2, max_iterations=20)
+        theta, atk_times, argmax, msg = atk.getAdvLB(image=img, num_particles=30, inertia_weight_max=0.9,inertia_weight_min=0.4, cognitive_weight=1.4,
+                                        social_weight=2, max_iterations=50)
         if atk_times == -1:
-            theta, atk_times = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=3, theta=theta)
+            theta, atk_times, argmax, msg = atk_kr.getAdvLB(image=img, S=30, tmax=100, k=5, theta=theta)
             if theta is None:
                 print('攻击失败')
                 continue
@@ -65,7 +65,7 @@ def testOne(filename, model, times, dataset='nips-2017'):
         suc_num += 1
         print('攻击成功 查询次数 %d' % (suc_times / suc_num))
         img.save('dataset/' + img_name)
-    test_log(model=model, method='pso', dateset=dataset, suc_num=suc_num, suc_times=suc_times, times=times)
+    test_log(model=model, method='pso-kr', dateset=dataset, suc_num=suc_num, suc_times=suc_times, times=times)
 
 
 def testTransfer(filename, model, times=1, dataset='nips-2017'):
@@ -94,32 +94,11 @@ def testTransfer(filename, model, times=1, dataset='nips-2017'):
             suc_times += atk_times
             suc_num += 1
             print('攻击成功 平均查询次数 %d' % (suc_times / suc_num))
+    print('攻击成功率 %f 平均查找次数%f' % (suc_num / times, suc_times / suc_num))
     test_log(model=model, method='pso', dateset=dataset, suc_num=suc_num, suc_times=suc_times, times=times)
 
 
-testOne(root, 'rn50', 100)
+testOne(root, 'rn50', 300)
 
 
 # testTransfer(data_root, 'mbv2',10)
-
-
-def testAll(filename, model):
-    vct = Vector()
-    kr = KR(rn50, vct)
-    suc_times = 0
-    times = 0
-    suc_num = 0
-    file_list = os.listdir(filename)
-    print(len(file_list))
-    for img_name in file_list:
-        theta, atk_times = kr.getAdvLB(image=Image.open(root + '\\' + img_name), S=10, tmax=100, k=10)
-        times += atk_times
-        if theta is None:
-            print('攻击失败')
-        else:
-            suc_times += atk_times
-            suc_num += 1
-            print('攻击成功')
-    test_log(model=model, method='kr', dateset='mini-imagenet', suc_num=suc_num, suc_times=suc_times, times=times)
-
-
